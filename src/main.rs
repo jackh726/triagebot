@@ -320,7 +320,7 @@ fn spawn_job_scheduler() {
 
                 loop {
                     interval.tick().await;
-                    db::schedule_jobs(&*pool.get().await, jobs())
+                    db::schedule_jobs(&*pool.get().await, default_jobs())
                         .await
                         .context("database schedule jobs")
                         .unwrap();

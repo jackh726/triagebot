@@ -22,18 +22,16 @@
 //!    let schedule = Schedule::from_str("0 30 11 * * FRI *").unwrap();
 //!    
 //!    let new_job = JobSchedule {
-//!      name: "send_zulip_message".to_owned(),
+//!      name: "send_zulip_message",
 //!      schedule: schedule,
 //!      metadata: metadata
 //!    }
 //!
-//! and include it in the below vector in jobs():
-//!
-//!   jobs.push(new_job);
-//!
-//! ... fianlly, add the corresponding "send_zulip_message" handler in src/handlers/jobs.rs
+//! and include it in the below vector in `default_jobs`
 
-use crate::db::jobs::JobSchedule;
+use async_trait::async_trait;
+
+use crate::{db::jobs::JobSchedule, handlers::{Context, docs_update::DocsUpdateJob, rustc_commits::RustcCommitsJob}};
 
 // How often new cron-based jobs will be placed in the queue.
 // This is the minimum period *between* a single cron task's executions.
@@ -43,17 +41,23 @@ pub const JOB_SCHEDULING_CADENCE_IN_SECS: u64 = 1800;
 // This is the granularity at which events will occur.
 pub const JOB_PROCESSING_CADENCE_IN_SECS: u64 = 60;
 
-pub fn jobs() -> Vec<JobSchedule> {
-    // Add to this vector any new cron task you want (as explained above)
-    let mut jobs: Vec<JobSchedule> = Vec::new();
-    jobs.push(crate::handlers::docs_update::job());
-    jobs.push(crate::handlers::rustc_commits::job());
+// The default jobs to schedule, repeatedly.
+pub fn default_jobs() -> Vec<Box<dyn Job + Sync>> {
+    vec![
+        Box::new(DocsUpdateJob),
+        Box::new(RustcCommitsJob),
+    ]
+}
 
-    jobs
+#[async_trait]
+pub trait Job {
+    fn schedule(&self) -> JobSchedule;
+
+    async fn run(&self, ctx: &Context, name: &String, metadata: &serde_json::Value) -> anyhow::Result<()>;
 }
 
 #[test]
 fn jobs_defined() {
     // Checks we don't panic here, mostly for the schedule parsing.
-    drop(jobs());
+    drop(default_jobs());
 }
